@@ -46,7 +46,3 @@ This web app allows users to select a `.txt` file, upload it to the server, and 
 - HTML5
 - CSS (linked in `style.css`)
 - JavaScript (fetch API for file upload)
-
-## License
-
-This project is open-source and available under the MIT License.
