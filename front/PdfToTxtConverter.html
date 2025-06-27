@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF to TXT Converter</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="container">
+    <h1>Convert TXT to PDF</h1>
+    <p>Select a <code>.pdf</code> file and convert it into a downloadable PDF.</p>
+
+    <input type="file" id="fileInput" accept=".pdf" />
+    <button class="convert-btn" onclick="uploadFile()">Convert to PDF</button>
+
+    <p id="message" class="message"></p>
+</div>
+
+<script>
+    async function uploadFile() {
+        const input = document.getElementById('fileInput');
+        const file = input.files[0];
+        const message = document.getElementById('message');
+
+        if (!file) {
+            message.textContent = "Please select a file first.";
+            message.classList.add("error");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        message.textContent = "Uploading...";
+        message.className = "message uploading";
+
+        try {
+            const response = await fetch("http://localhost:8080/api/v1/converter/upload/pdf-to-txt", {
+                method: "POST",
+                body: formData
+            });
+
+            if (!response.ok) throw new Error("Server error");
+
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "converted.txt";
+            a.click();
+            URL.revokeObjectURL(url);
+
+            message.textContent = "TXT downloaded successfully.";
+            message.className = "message success";
+        } catch (error) {
+            console.error(error);
+            message.textContent = "Conversion failed.";
+            message.className = "message error";
+        }
+    }
+</script>
+</body>
+</html>
