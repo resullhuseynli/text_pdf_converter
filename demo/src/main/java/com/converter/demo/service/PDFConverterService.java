@@ -4,6 +4,9 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.font.PDType0Font;
+import org.apache.pdfbox.text.PDFTextStripper;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -11,10 +14,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-
-import static java.awt.SystemColor.text;
+import java.util.Objects;
 
 @Service
 public class PDFConverterService {
@@ -42,7 +47,7 @@ public class PDFConverterService {
 
             String line;
             while ((line = reader.readLine()) != null) {
-                List<String> wrappedLines = wrapText(line, font, fontSize, 500);
+                List<String> wrappedLines = wrapText(line, font, fontSize);
                 for (String wrappedLine : wrappedLines) {
                     if (yPosition <= margin + leading) {
                         contentStream.endText();
@@ -85,7 +90,34 @@ public class PDFConverterService {
         }
     }
 
-    private List<String> wrapText(String text, PDType0Font font, float fontSize, float maxWidth) throws IOException {
+
+    private static final String UPLOAD_DIR = "converted/";
+
+    public ResponseEntity<Resource> convertPdfToTxt(MultipartFile file) {
+        try {
+            Files.createDirectories(Paths.get(UPLOAD_DIR));
+
+            PDDocument document = PDDocument.load(file.getInputStream());
+            PDFTextStripper pdfStripper = new PDFTextStripper();
+            String extractedText = pdfStripper.getText(document);
+            document.close();
+
+            String baseFileName = Objects.requireNonNull(file.getOriginalFilename()).replaceAll("(?i)\\.pdf$", "");
+            Path txtFilePath = Paths.get(UPLOAD_DIR + baseFileName + ".txt");
+            Files.write(txtFilePath, extractedText.getBytes());
+
+            FileSystemResource resource = new FileSystemResource(txtFilePath);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + txtFilePath.getFileName() + "\"")
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(resource);
+
+        } catch (IOException e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    private List<String> wrapText(String text, PDType0Font font, float fontSize) throws IOException {
         List<String> lines = new ArrayList<>();
         String[] words = text.split(" ");
         StringBuilder currentLine = new StringBuilder();
@@ -94,7 +126,7 @@ public class PDFConverterService {
             String lineWithWord = currentLine.isEmpty() ? word : currentLine + " " + word;
             float width = font.getStringWidth(lineWithWord) / 1000 * fontSize;
 
-            if (width <= maxWidth) {
+            if (width <= (float) 500) {
                 currentLine.append(currentLine.isEmpty() ? word : " " + word);
             } else {
                 lines.add(currentLine.toString());
